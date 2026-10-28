@@ -2,7 +2,7 @@
 const models = require('../models');
 
 // get the Cat model
-const { Cat } = models;
+const { Cat, Dog } = models;
 
 // Function to handle rendering the index page.
 const hostIndex = async (req, res) => {
@@ -98,6 +98,16 @@ const hostPage2 = (req, res) => {
 // Function to render the untemplated page3.
 const hostPage3 = (req, res) => {
   res.render('page3');
+};
+
+const hostPage4 = async (req, res) => {
+  try {
+    const docs = await Dog.find({}).lean().exec();
+    return res.render('page4', { dogs: docs });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ error: 'failed to find dogs' });
+  }
 };
 
 // Get name will return the name of the last added cat.
@@ -276,6 +286,54 @@ const updateLast = (req, res) => {
   });
 };
 
+// Make a dog!
+const makeDog = async (req, res) => {
+  // Throw error if missing stuff
+  if (!req.body.name || !req.body.breed || !req.body.age) {
+    return res.status(400).json({ error: 'Name, breed and age are all required' });
+  }
+  const dogData = {
+    name: req.body.name,
+    breed: req.body.breed,
+    age: req.body.age,
+  }
+  // Make a dog and try saving it
+  const newDog = new Dog(dogData);
+  console.log(newDog);
+  try {
+    await newDog.save();
+    return res.status(201).json({
+      name: newDog.name,
+      breed: newDog.breed,
+      age: newDog.age,
+    });
+  }
+  catch(err) {
+    console.log(err);
+    return res.status(500).json({error: 'Failed to create dog'});
+  }
+};
+
+// Find a dog and increase its age by 1
+const increaseAge = async (req, res) => {
+  // Try to find the dog and increase age
+  const updatePromise = Dog.findOneAndUpdate({}, {$inc: {'age': 1}}, {
+    returnDocument: 'after',
+    sort: {'createdDate': 'descending'}
+  }).lean().exec();
+  // If dog was found, return it
+  updatePromise.then((doc) => res.json({
+    name: doc.name,
+    breed: doc.breed,
+    age: doc.age
+  }));
+  // If no dog was found or if something else went wrong, throw error
+  updatePromise.catch((err) => {
+    console.log(err);
+    return res.status(500).json({ error: 'Something went wrong' });
+  });
+};
+
 // A function to send back the 404 page.
 const notFound = (req, res) => {
   res.status(404).render('notFound', {
@@ -289,9 +347,12 @@ module.exports = {
   page1: hostPage1,
   page2: hostPage2,
   page3: hostPage3,
+  page4: hostPage4,
   getName,
   setName,
   updateLast,
   searchName,
+  makeDog,
+  increaseAge,
   notFound,
 };
